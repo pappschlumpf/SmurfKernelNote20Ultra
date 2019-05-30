@@ -323,4 +323,10 @@ config FS_HPB
 	bool "Support HPB on Filesystem"
 	default n
 
+config DYNAMIC_FSYNC
+	bool "dynamic file sync control"
+	default n
+	help
+	  An experimental file sync control using new power_suspend driver 
+
 endmenu
