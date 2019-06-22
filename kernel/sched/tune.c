@@ -607,11 +607,12 @@ boost_write(struct cgroup_subsys_state *css, struct cftype *cft,
 	    s64 boost)
 {
 	struct schedtune *st = css_st(css);
-
-	if (!memcmp(current->comm, "init", sizeof("init")) ||
-		!memcmp(current->comm, "NodeLooperThrea", sizeof("NodeLooperThrea")) ||
-		!memcmp(current->comm, "power@1.3-servi", sizeof("power@1.3-servi")))
-		return 0;
+	
+	if (cft)
+		if (!memcmp(current->comm, "init", sizeof("init")) ||
+			!memcmp(current->comm, "NodeLooperThrea", sizeof("NodeLooperThrea")) ||
+			!memcmp(current->comm, "power@1.3-servi", sizeof("power@1.3-servi")))
+			return 0;
 
 	if (boost < 0 || boost > 100)
 		return -EINVAL;
