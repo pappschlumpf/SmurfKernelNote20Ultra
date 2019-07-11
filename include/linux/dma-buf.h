@@ -306,6 +306,7 @@ struct dma_buf {
 	struct list_head list_node;
 	void *priv;
 	struct reservation_object *resv;
+	bool from_kmem;
 
 	/* poll support */
 	wait_queue_head_t poll;
