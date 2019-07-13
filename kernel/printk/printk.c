@@ -1480,6 +1480,8 @@ static int syslog_print(char __user *buf, int size)
 	struct printk_log *msg;
 	int len = 0;
 
+	memset(&text, 0, LOG_LINE_MAX + PREFIX_MAX);
+
 	while (size > 0) {
 		size_t n;
 		size_t skip;
@@ -1532,12 +1534,10 @@ static int syslog_print(char __user *buf, int size)
 
 static int syslog_print_all(char __user *buf, int size, bool clear, bool knox)
 {
-	char *text;
+	char text[LOG_LINE_MAX + PREFIX_MAX];
 	int len = 0;
 
-	text = kmalloc(LOG_LINE_MAX + PREFIX_MAX, GFP_KERNEL);
-	if (!text)
-		return -ENOMEM;
+	memset(&text, 0, LOG_LINE_MAX + PREFIX_MAX);
 
 	logbuf_lock_irq();
 	if (buf) {
@@ -1630,7 +1630,6 @@ static int syslog_print_all(char __user *buf, int size, bool clear, bool knox)
 
 	logbuf_unlock_irq();
 
-	kfree(text);
 	return len;
 }
 
