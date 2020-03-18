@@ -290,18 +290,15 @@ struct task_struct *__kthread_create_on_node(int (*threadfn)(void *data),
 {
 	DECLARE_COMPLETION_ONSTACK(done);
 	struct task_struct *task;
-	struct kthread_create_info *create = kmalloc(sizeof(*create),
-						     GFP_KERNEL);
+	struct kthread_create_info create;
 
-	if (!create)
-		return ERR_PTR(-ENOMEM);
-	create->threadfn = threadfn;
-	create->data = data;
-	create->node = node;
-	create->done = &done;
+	create.threadfn = threadfn;
+	create.data = data;
+	create.node = node;
+	create.done = &done;
 
 	spin_lock(&kthread_create_lock);
-	list_add_tail(&create->list, &kthread_create_list);
+	list_add_tail(&create.list, &kthread_create_list);
 	spin_unlock(&kthread_create_lock);
 
 	wake_up_process(kthreadd_task);
@@ -317,7 +314,7 @@ struct task_struct *__kthread_create_on_node(int (*threadfn)(void *data),
 		 * calls complete(), leave the cleanup of this structure to
 		 * that thread.
 		 */
-		if (xchg(&create->done, NULL)) {
+		if (xchg(&create.done, NULL))
 			secdbg_dtsk_clear_data();
 			return ERR_PTR(-EINTR);
 		}
@@ -329,7 +326,7 @@ struct task_struct *__kthread_create_on_node(int (*threadfn)(void *data),
 	}
 	secdbg_dtsk_clear_data();
 
-	task = create->result;
+	task = create.result;
 	if (!IS_ERR(task)) {
 		static const struct sched_param param = { .sched_priority = 0 };
 		char name[TASK_COMM_LEN];
@@ -347,7 +344,6 @@ struct task_struct *__kthread_create_on_node(int (*threadfn)(void *data),
 		sched_setscheduler_nocheck(task, SCHED_NORMAL, &param);
 		set_cpus_allowed_ptr(task, cpu_all_mask);
 	}
-	kfree(create);
 	return task;
 }
 
