@@ -217,6 +217,12 @@ static inline bool dl_entity_is_special(struct sched_dl_entity *dl_se)
 #endif
 }
 
+static inline void update_avg(u64 *avg, u64 sample)
+{
+	s64 diff = sample - *avg;
+	*avg += diff / 8;
+}
+
 /*
  * Tells if entity @a should preempt entity @b.
  */
