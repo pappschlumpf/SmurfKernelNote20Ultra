@@ -2033,4 +2033,6 @@ static inline void rseq_syscall(struct pt_regs *regs)
 
 #endif
 
+void set_stune_boost(char *st_name, int boost);
+
 #endif
