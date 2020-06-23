@@ -10035,8 +10035,25 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	if (!ufshcd_is_ufs_dev_active(hba)) {
 		ret = ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE);
-		if (ret)
-			goto set_old_link_state;
+		if (ret) {
+			/*
+			 * In the case of SSU timeout, err_handler must have
+			 * recovered the uic link and dev state to active so
+			 * we can proceed after checking the link and
+			 * dev state.
+			 */
+			if (ufshcd_is_ufs_dev_active(hba) &&
+			    ufshcd_is_link_active(hba))
+				ret = 0;
+
+			else if ((work_pending(&hba->eh_work)) ||
+				ufshcd_eh_in_progress(hba)) {
+				flush_work(&hba->eh_work);
+				ret = 0;
+				}
+			if (ret)
+				goto set_old_link_state;
+		}
 	}
 
 	if (ufshcd_keep_autobkops_enabled_except_suspend(hba))
