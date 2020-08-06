@@ -1137,8 +1137,9 @@ new_kmalloc_cache(int idx, int type, unsigned long flags)
 		name = kmalloc_info[idx].name;
 	}
 
-	kmalloc_caches[type][idx] = create_kmalloc_cache(name,
-					kmalloc_info[idx].size, flags);
+	kmalloc_caches[type][idx] = create_kmalloc_cache(kmalloc_info[idx].name,
+					kmalloc_info[idx].size, flags, 0,
+					kmalloc_info[idx].size);
 }
 
 /*
