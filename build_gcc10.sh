@@ -13,20 +13,19 @@ THREAD="-j$(grep -c ^processor /proc/cpuinfo)"
 KERNEL="Image"
 DTBIMAGE="dtb"
 
+#export CLANG_PATH=~/android/Toolchains/clang/clang-r328903/bin/
+#export PATH=${CLANG_PATH}:${PATH}
+#export CLANG_TRIPLE=aarch64-linux-gnu-
 export ARCH=arm64
 export SUBARCH=arm64
-export CLANG_PATH=/media/${USER}/ExtremeExt4/Toolchains/clang/ProtonClang/bin
-export PATH=${CLANG_PATH}:${PATH}
-export DTC_EXT=dtc
-export CLANG_TRIPLE=aarch64-linux-gnu-
-export LD_LIBRARY_PATH=/media/${USER}/ExtremeExt4/Toolchains/clang/ProtonClang/lib:$LD_LIBRARY_PATH
-export SPL="2020-05"
-
+export SPL="2020-02"
+export CROSS_COMPILE=/media/${USER}/ExtremeExt4/Toolchains/gcc10/aarch64-linux-elf/bin/aarch64-linux-elf-
+export CROSS_COMPILE_ARM32=/media/${USER}/ExtremeExt4/Toolchains/gcc9eabi_92/bin/arm-eabi-
 #export KBUILD_COMPILER_STRING=$(~/android/Toolchains/clang/clang-r328903/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 DEFCONFIG="exynos9830-c2sxxx_defconfig"
 
 # Kernel Details
-VER=".1.0.0t1"
+VER=".1.0.0.unified"
 
 # Paths
 KERNEL_DIR=`pwd`
@@ -41,7 +40,7 @@ function clean_all {
 		#ccache -C
 		cd $KERNEL_DIR
 		echo
-		make ARCH=arm64 SUBARCH=arm64 mrproper
+		make clean && make mrproper
 		rm -rf $MODULES_DIR/*
 		rm -rf ../SmurfKernel_Note20Ultra/out/*
 		#git reset --hard > /dev/null 2>&1
@@ -49,10 +48,10 @@ function clean_all {
 }
 
 function make_kernel {
-	      cp ../SmurfKernel_Note20Ultra/Makefile.clang ../SmurfKernel_Note20Ultra/Makefile
+	      cp ../SmurfKernel_Note20Ultra/Makefile.gcc ../SmurfKernel_Note20Ultra/Makefile
 	      echo
               make ARCH=arm64 O=out $DEFCONFIG
-              make ARCH=arm64 O=out CC="ccache clang" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- $THREAD CROSS_COMPILE_COMPAT=$BUILD_CROSS_COMPILE_COMPAT LLVM=1 LLVM_IAS=1 
+              make ARCH=arm64 O=out $THREAD
 }
 
 function make_modules {
@@ -92,7 +91,7 @@ echo -e "${restore}"
 
 
 # Vars
-BASE_AK_VER="SmurfKernelNote20Ultra"
+BASE_AK_VER="SmurfKernel"
 AK_VER="$BASE_AK_VER$VER"
 export LOCALVERSION=~`echo $AK_VER`
 export LOCALVERSION=~`echo $AK_VER`
