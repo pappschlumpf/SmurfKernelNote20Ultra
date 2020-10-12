@@ -41,9 +41,6 @@ static irqreturn_t secure_filter_interrupt(struct sec_ts_data *ts)
 	if (atomic_read(&ts->secure_enabled) == SECURE_TOUCH_ENABLE) {
 		if (atomic_cmpxchg(&ts->secure_pending_irqs, 0, 1) == 0)
 			sysfs_notify(&ts->input_dev->dev.kobj, NULL, "secure_touch");
-		else
-			input_info(true, &ts->client->dev, "%s: pending irq:%d\n",
-					__func__, (int)atomic_read(&ts->secure_pending_irqs));
 
 		return IRQ_HANDLED;
 	}
@@ -131,8 +128,6 @@ static ssize_t secure_touch_enable_store(struct device *dev,
 		atomic_set(&ts->secure_pending_irqs, 0);
 
 		enable_irq(ts->client->irq);
-
-		input_info(true, &ts->client->dev, "%s: secure touch enable\n", __func__);
 	} else if (data == 0) {
 		/* Disable Secure World */
 		if (atomic_read(&ts->secure_enabled) == SECURE_TOUCH_DISABLE) {
@@ -152,8 +147,6 @@ static ssize_t secure_touch_enable_store(struct device *dev,
 		sec_ts_irq_thread(ts->client->irq, ts);
 		complete(&ts->secure_interrupt);
 		complete(&ts->secure_powerdown);
-
-		input_info(true, &ts->client->dev, "%s: secure touch disable\n", __func__);
 
 		ret = sec_ts_release_tmode(ts);
 		if (ret < 0) {
@@ -215,8 +208,6 @@ static struct attribute_group secure_attr_group = {
 
 static int secure_touch_init(struct sec_ts_data *ts)
 {
-	input_info(true, &ts->client->dev, "%s\n", __func__);
-
 	init_completion(&ts->secure_interrupt);
 	init_completion(&ts->secure_powerdown);
 
@@ -232,8 +223,6 @@ static void secure_touch_stop(struct sec_ts_data *ts, bool stop)
 
 		if (stop)
 			wait_for_completion_interruptible(&ts->secure_powerdown);
-
-		input_info(true, &ts->client->dev, "%s: %d\n", __func__, stop);
 	}
 }
 #endif
@@ -723,7 +712,6 @@ static void sec_ts_set_utc_sponge(struct sec_ts_data *ts)
 	data[3] = (0xFF & (u8)((current_time.tv_sec) >> 8));
 	data[4] = (0xFF & (u8)((current_time.tv_sec) >> 16));
 	data[5] = (0xFF & (u8)((current_time.tv_sec) >> 24));
-	input_info(true, &ts->client->dev, "Write UTC to Sponge = %X\n", (int)(current_time.tv_sec));
 
 	ret = ts->sec_ts_write_sponge(ts, data, 6);
 	if (ret < 0)
@@ -733,8 +721,6 @@ static void sec_ts_set_utc_sponge(struct sec_ts_data *ts)
 static void sec_ts_set_prox_power_off(struct sec_ts_data *ts, u8 data)
 {
 	int ret;
-
-	input_info(true, &ts->client->dev, "Write prox set = %d\n", data);
 
 	ret = ts->sec_ts_i2c_write(ts, SEC_TS_CMD_PROX_POWER_OFF, &data, 1);
 	if (ret < 0)
@@ -783,17 +769,9 @@ static void dump_tsp_log(void)
 static void sec_ts_sponge_dump_flush(struct sec_ts_data *ts, int dump_area)
 {
 	int i, ret;
-	unsigned char *sec_spg_dat;
-	input_info(true, &ts->client->dev, "%s: ++\n", __func__);
+	unsigned char sec_spg_dat[SEC_TS_MAX_SPONGE_DUMP_BUFFER];
 
-	sec_spg_dat = vmalloc(SEC_TS_MAX_SPONGE_DUMP_BUFFER);
-	if (!sec_spg_dat) {
-		input_err(true, &ts->client->dev, "%s : Failed!!\n", __func__);
-		return;
-	}
 	memset(sec_spg_dat, 0, SEC_TS_MAX_SPONGE_DUMP_BUFFER);
-
-	input_info(true, &ts->client->dev, "%s: dump area=%d\n", __func__, dump_area);
 
 	/* check dump area */
 	if (dump_area == 0) {
@@ -808,7 +786,6 @@ static void sec_ts_sponge_dump_flush(struct sec_ts_data *ts, int dump_area)
 	ret = ts->sec_ts_read_sponge(ts, sec_spg_dat, ts->sponge_dump_event * ts->sponge_dump_format);
 	if (ret < 0) {
 		input_err(true, &ts->client->dev, "%s: Failed to read sponge\n", __func__);
-		vfree(sec_spg_dat);
 		return;
 	}
 
@@ -830,8 +807,6 @@ static void sec_ts_sponge_dump_flush(struct sec_ts_data *ts, int dump_area)
 		}
 	}
 
-	vfree(sec_spg_dat);
-	input_info(true, &ts->client->dev, "%s: --\n", __func__);
 	return;
 }
 #endif
@@ -872,10 +847,6 @@ void sec_ts_get_touch_function(struct work_struct *work)
 				__func__, ret);
 		return;
 	}
-
-	input_info(true, &ts->client->dev,
-			"%s: touch_functions:%x ic_status:%x\n", __func__,
-			ts->touch_functions, ts->ic_status);
 }
 
 int sec_ts_wait_for_ready(struct sec_ts_data *ts, unsigned int ack)
@@ -907,11 +878,6 @@ int sec_ts_wait_for_ready(struct sec_ts_data *ts, unsigned int ack)
 	if (retry > SEC_TS_WAIT_RETRY_CNT)
 		input_err(true, &ts->client->dev, "%s: Time Over\n", __func__);
 
-	input_info(true, &ts->client->dev,
-			"%s: %02X, %02X, %02X, %02X, %02X, %02X, %02X, %02X [%d]\n",
-			__func__, tBuff[0], tBuff[1], tBuff[2], tBuff[3],
-			tBuff[4], tBuff[5], tBuff[6], tBuff[7], retry);
-
 	return rc;
 }
 
@@ -928,9 +894,6 @@ int sec_ts_read_calibration_report(struct sec_ts_data *ts)
 		return ret;
 	}
 
-	input_info(true, &ts->client->dev, "%s: count:%d, pass count:%d, fail count:%d, status:0x%X\n",
-			__func__, buf[1], buf[2], buf[3], buf[4]);
-
 	return buf[4];
 }
 
@@ -938,10 +901,6 @@ void sec_ts_reinit(struct sec_ts_data *ts)
 {
 	u8 w_data[3] = {0x00, 0x00, 0x00};
 	int ret = 0;
-
-	input_info(true, &ts->client->dev,
-		"%s: charger=0x%x, touch_functions=0x%x, Power mode=0x%x\n",
-		__func__, ts->charger_mode, ts->touch_functions, ts->power_status);
 
 	ts->touch_noise_status = 0;
 	ts->touch_pre_noise_status = 0;
@@ -1002,7 +961,6 @@ void sec_ts_reinit(struct sec_ts_data *ts)
 		sec_ts_set_external_noise_mode(ts, EXT_NOISE_MODE_MAX);
 
 		if (ts->brush_mode) {
-			input_info(true, &ts->client->dev, "%s: set brush mode\n", __func__);
 			ret = ts->sec_ts_i2c_write(ts, SEC_TS_CMD_SET_BRUSH_MODE, &ts->brush_mode, 1);
 			if (ret < 0) {
 				input_err(true, &ts->client->dev,
@@ -1012,7 +970,6 @@ void sec_ts_reinit(struct sec_ts_data *ts)
 		}
 
 		if (ts->touchable_area) {
-			input_info(true, &ts->client->dev, "%s: set 16:9 mode\n", __func__);
 			ret = ts->sec_ts_i2c_write(ts, SEC_TS_CMD_SET_TOUCHABLE_AREA, &ts->touchable_area, 1);
 			if (ret < 0) {
 				input_err(true, &ts->client->dev,
@@ -1023,7 +980,6 @@ void sec_ts_reinit(struct sec_ts_data *ts)
 	}
 
 	if (ts->ed_enable) {
-		input_info(true, &ts->client->dev, "%s: set ear detect mode\n", __func__);
 		ret = ts->sec_ts_i2c_write(ts, SEC_TS_SET_EAR_DETECT_MODE, &ts->ed_enable, 1);
 		if (ret < 0) {
 			input_err(true, &ts->client->dev,
@@ -1059,63 +1015,6 @@ void sec_ts_print_info(struct sec_ts_data *ts)
 
 	if (ts->touch_count == 0)
 		ts->print_info_cnt_release++;
-
-	if (ts->plat_data->support_multi_cal) {
-		input_info(true, &ts->client->dev,
-				"mode:%04X tc:%d noise:%d%d ext_n:%d wet:%d wc:%x(%d) lp:(%x) fod:%d D%05X fn:%04X/%04X ED:%d DM:%s // "
-				"v:%02X%02X cal:%02X(%02X) NS C%02XT%04X.%4s%s Cal_flag:%s fail_cnt:%d "
-				"HS C%02XT%04X.%4s%s Cal_flag:%s fail_cnt:%d // "
-				"sip:%d id(%d,%d) tmp(%d) d-irq:%d // #%d %d\n",
-				ts->print_info_currnet_mode, ts->touch_count,
-				ts->touch_noise_status, ts->touch_pre_noise_status,
-				ts->external_noise_mode, ts->wet_mode,
-				ts->charger_mode, ts->force_charger_mode,
-				ts->lowpower_mode, ts->fod_set_val, ts->defect_probability,
-				ts->touch_functions, ts->ic_status, ts->ed_enable,
-				ts->display_mode ? "HS" : "NS",
-				ts->plat_data->img_version_of_ic[2], ts->plat_data->img_version_of_ic[3],
-				ts->cal_status, ts->nv,
-#ifdef TCLM_CONCEPT
-				ts->tdata->nvdata.cal_count, ts->tdata->nvdata.tune_fix_ver,
-				ts->tdata->tclm_string[ts->tdata->nvdata.cal_position].f_name,
-				(ts->tdata->tclm_level == TCLM_LEVEL_LOCKDOWN) ? ".L" : " ",
-				(ts->tdata->nvdata.cal_fail_falg == SEC_CAL_PASS) ? "Success" : "Fail",
-				ts->tdata->nvdata.cal_fail_cnt, 
-				ts->tdata2->nvdata.cal_count, ts->tdata2->nvdata.tune_fix_ver,
-				ts->tdata2->tclm_string[ts->tdata2->nvdata.cal_position].f_name,
-				(ts->tdata2->tclm_level == TCLM_LEVEL_LOCKDOWN) ? ".L" : " ",
-				(ts->tdata2->nvdata.cal_fail_falg == SEC_CAL_PASS) ? "Success" : "Fail",
-				ts->tdata2->nvdata.cal_fail_cnt, 
-#else
-				0,0," "," "," ",0,0,0," "," "," ",0,
-#endif
-				ts->sip_mode, ts->tspid_val, ts->tspicid_val,
-				ts->tsp_temp_data, ts->irq_delay_count,
-				ts->print_info_cnt_open, ts->print_info_cnt_release);
-	} else {
-		input_info(true, &ts->client->dev,
-				"mode:%04X tc:%d noise:%d%d ext_n:%d wet:%d wc:%x(%d) lp:(%x) fod:%d D%05X fn:%04X/%04X ED:%d // v:%02X%02X cal:%02X(%02X) C%02XT%04X.%4s%s Cal_flag:%s fail_cnt:%d // sip:%d id(%d,%d) tmp(%d) d-irq:%d // #%d %d\n",
-				ts->print_info_currnet_mode, ts->touch_count,
-				ts->touch_noise_status, ts->touch_pre_noise_status,
-				ts->external_noise_mode, ts->wet_mode,
-				ts->charger_mode, ts->force_charger_mode,
-				ts->lowpower_mode, ts->fod_set_val, ts->defect_probability,
-				ts->touch_functions, ts->ic_status, ts->ed_enable,
-				ts->plat_data->img_version_of_ic[2], ts->plat_data->img_version_of_ic[3],
-				ts->cal_status, ts->nv,
-#ifdef TCLM_CONCEPT
-				ts->tdata->nvdata.cal_count, ts->tdata->nvdata.tune_fix_ver,
-				ts->tdata->tclm_string[ts->tdata->nvdata.cal_position].f_name,
-				(ts->tdata->tclm_level == TCLM_LEVEL_LOCKDOWN) ? ".L" : " ",
-				(ts->tdata->nvdata.cal_fail_falg == SEC_CAL_PASS) ? "Success" : "Fail",
-				ts->tdata->nvdata.cal_fail_cnt,
-#else
-				0,0," "," "," ",0,
-#endif
-				ts->sip_mode, ts->tspid_val, ts->tspicid_val,
-				ts->tsp_temp_data, ts->irq_delay_count,
-				ts->print_info_cnt_open, ts->print_info_cnt_release);
-	}
 }
 
 /************************************************************
@@ -1182,9 +1081,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			input_err(true, &ts->client->dev, "%s: LPM: -ERESTARTSYS if interrupted, %d\n", __func__, ret);
 			return;
 		}
-
-		input_info(true, &ts->client->dev, "%s: run LPM interrupt handler, %d\n", __func__, ret);
-		/* run lpm interrupt handler */
 	}
 
 	ret = t_id = event_id = curr_pos = remain_event_count = 0;
@@ -1195,15 +1091,7 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 		return;
 	}
 
-	if (ts->debug_flag & SEC_TS_DEBUG_PRINT_ONEEVENT)
-		input_info(true, &ts->client->dev, "ONE: %02X %02X %02X %02X %02X %02X %02X %02X\n",
-				read_event_buff[0][0], read_event_buff[0][1],
-				read_event_buff[0][2], read_event_buff[0][3],
-				read_event_buff[0][4], read_event_buff[0][5],
-				read_event_buff[0][6], read_event_buff[0][7]);
-
 	if (read_event_buff[0][0] == 0) {
-		input_info(true, &ts->client->dev, "%s: event buffer is empty\n", __func__);
 		return;
 	}
 
@@ -1251,21 +1139,9 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 		event_buff = read_event_buff[curr_pos];
 		event_id = event_buff[0] & 0x3;
 
-		if (ts->debug_flag & SEC_TS_DEBUG_PRINT_ALLEVENT)
-			input_info(true, &ts->client->dev, "ALL: %02X %02X %02X %02X %02X %02X %02X %02X\n",
-					event_buff[0], event_buff[1], event_buff[2], event_buff[3],
-					event_buff[4], event_buff[5], event_buff[6], event_buff[7]);
-
 		switch (event_id) {
 		case SEC_TS_STATUS_EVENT:
 			p_event_status = (struct sec_ts_event_status *)event_buff;
-
-			/* tchsta == 0 && ttype == 0 && eid == 0 : buffer empty */
-			if (p_event_status->stype > 0)
-				input_info(true, &ts->client->dev, "%s: STATUS %x %x %x %x %x %x %x %x\n", __func__,
-						event_buff[0], event_buff[1], event_buff[2],
-						event_buff[3], event_buff[4], event_buff[5],
-						event_buff[6], event_buff[7]);
 
 			/* watchdog reset -> send SENSEON command */
 			if ((p_event_status->stype == TYPE_STATUS_EVENT_INFO) &&
@@ -1300,8 +1176,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			if ((p_event_status->stype == TYPE_STATUS_EVENT_INFO) &&
 					(p_event_status->status_id == SEC_TS_ACK_WET_MODE)) {
 				ts->wet_mode = p_event_status->status_data_1;
-				input_info(true, &ts->client->dev, "%s: water wet mode %d\n",
-						__func__, ts->wet_mode);
 				if (ts->wet_mode)
 					ts->wet_count++;
 			}
@@ -1314,17 +1188,14 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_UNBLOCK;
 					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
-					input_info(true, &ts->client->dev, "%s: Normal changed(%d)\n", __func__, ts->scrub_id);
 				} else if (p_event_status->status_data_1 == 5 && p_event_status->status_data_2 == 2) {
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_UNBLOCK;
 					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
-					input_info(true, &ts->client->dev, "%s: lp changed(%d)\n", __func__, ts->scrub_id);
 				} else if (p_event_status->status_data_1 == 6) {
 					ts->scrub_id = EVENT_TYPE_TSP_SCAN_BLOCK;
 					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					input_sync(ts->input_dev);
-					input_info(true, &ts->client->dev, "%s: sleep changed(%d)\n", __func__, ts->scrub_id);
 				}
 				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 0);
 				input_sync(ts->input_dev);
@@ -1334,9 +1205,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			if ((p_event_status->stype == TYPE_STATUS_EVENT_VENDOR_INFO) &&
 					(p_event_status->status_id == SEC_TS_VENDOR_ACK_NOISE_STATUS_NOTI)) {
 				ts->touch_noise_status = !!p_event_status->status_data_1;
-				input_info(true, &ts->client->dev, "%s: TSP NOISE MODE %s[%02X %02X]\n",
-						__func__, ts->touch_noise_status == 0 ? "OFF" : "ON",
-						p_event_status->status_data_2, p_event_status->status_data_3);
 
 				if (ts->touch_noise_status)
 					ts->noise_count++;
@@ -1345,28 +1213,20 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			if ((p_event_status->stype == TYPE_STATUS_EVENT_VENDOR_INFO) &&
 					(p_event_status->status_id == SEC_TS_VENDOR_ACK_PRE_NOISE_STATUS_NOTI)) {
 				ts->touch_pre_noise_status = !!p_event_status->status_data_1;
-				input_info(true, &ts->client->dev, "%s: TSP PRE NOISE MODE %s\n",
-						__func__, ts->touch_pre_noise_status == 0 ? "OFF" : "ON");
 			}
 
 			if ((p_event_status->stype == TYPE_STATUS_EVENT_VENDOR_INFO) &&
 					(p_event_status->status_id == SEC_TS_VENDOR_ACK_CHARGER_STATUS_NOTI)) {
-				input_info(true, &ts->client->dev, "%s: TSP CHARGER MODE:%d\n",
-						__func__, p_event_status->status_data_1);
 			}
 
 			if ((p_event_status->stype == TYPE_STATUS_EVENT_VENDOR_INFO) &&
 					(p_event_status->status_id == SEC_TS_VENDOR_ACK_DISPMODE_STATUS_NOTI)) {
 				ts->display_mode = p_event_status->status_data_1;
-				input_info(true, &ts->client->dev, "%s: Display MODE: %s\n",
-						__func__, ts->display_mode ? "HS" : "NS");
 			}
 
 			if(ts->plat_data->support_ear_detect && ts->ed_enable){
 				if ((p_event_status->stype == TYPE_STATUS_EVENT_VENDOR_INFO) &&
 					(p_event_status->status_id == STATUS_EVENT_VENDOR_PROXIMITY)) {
-						input_info(true, &ts->client->dev, "%s: EAR_DETECT(%d)\n",
-							__func__, p_event_status->status_data_1);
 						input_report_abs(ts->input_dev_proximity, ABS_MT_CUSTOM,
 									p_event_status->status_data_1);
 						input_sync(ts->input_dev_proximity);
@@ -1440,31 +1300,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 						}
 
 						location_detect(ts, location, ts->coord[t_id].x, ts->coord[t_id].y);
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-						input_info(true, &ts->client->dev,
-								"[R] tID:%d loc:%s dd:%d,%d mc:%d tc:%d lx:%d ly:%d mx:%d my:%d p:%d noise:(%x,%d%d) nlvl:%d, maxS:%d, hid:%d\n",
-								t_id, location,
-								ts->coord[t_id].x - ts->coord[t_id].p_x,
-								ts->coord[t_id].y - ts->coord[t_id].p_y,
-								ts->coord[t_id].mcount, ts->touch_count,
-								ts->coord[t_id].x, ts->coord[t_id].y,
-								ts->coord[t_id].max_energy_x, ts->coord[t_id].max_energy_y,
-								ts->coord[t_id].palm_count,
-								ts->coord[t_id].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status,
-								ts->coord[t_id].noise_level, ts->coord[t_id].max_strength, ts->coord[t_id].hover_id_num);
-#else
-						input_info(true, &ts->client->dev,
-								"[R] tID:%d loc:%s dd:%d,%d mp:%d,%d mc:%d tc:%d p:%d noise:(%x,%d%d) nlvl:%d, maxS:%d, hid:%d\n",
-								t_id, location,
-								ts->coord[t_id].x - ts->coord[t_id].p_x,
-								ts->coord[t_id].y - ts->coord[t_id].p_y,
-								ts->coord[t_id].max_energy_x - ts->coord[t_id].p_x,
-								ts->coord[t_id].max_energy_y - ts->coord[t_id].p_y,
-								ts->coord[t_id].mcount, ts->touch_count,
-								ts->coord[t_id].palm_count,
-								ts->coord[t_id].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status,
-								ts->coord[t_id].noise_level, ts->coord[t_id].max_strength, ts->coord[t_id].hover_id_num);
-#endif
 						ts->coord[t_id].action = SEC_TS_COORDINATE_ACTION_NONE;
 						ts->coord[t_id].mcount = 0;
 						ts->coord[t_id].palm_count = 0;
@@ -1510,27 +1345,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 							ts->coord[t_id].max_energy_x = ts->coord[t_id].x;
 							ts->coord[t_id].max_energy_y = ts->coord[t_id].y;
 						}
-
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-						input_info(true, &ts->client->dev,
-								"[P] tID:%d.%d x:%d y:%d z:%d major:%d minor:%d loc:%s tc:%d type:%X noise:(%x,%d%d), nlvl:%d, maxS:%d, hid:%d\n",
-								t_id, (ts->input_dev->mt->trkid - 1) & TRKID_MAX,
-								ts->coord[t_id].x, ts->coord[t_id].y, ts->coord[t_id].z,
-								ts->coord[t_id].major, ts->coord[t_id].minor,
-								location, ts->touch_count,
-								ts->coord[t_id].ttype,
-								ts->coord[t_id].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status,
-								ts->coord[t_id].noise_level, ts->coord[t_id].max_strength, ts->coord[t_id].hover_id_num);
-#else
-						input_info(true, &ts->client->dev,
-								"[P] tID:%d.%d z:%d major:%d minor:%d loc:%s tc:%d type:%X noise:(%x,%d%d), nlvl:%d, maxS:%d, hid:%d\n",
-								t_id, (ts->input_dev->mt->trkid - 1) & TRKID_MAX,
-								ts->coord[t_id].z, ts->coord[t_id].major,
-								ts->coord[t_id].minor, location, ts->touch_count,
-								ts->coord[t_id].ttype,
-								ts->coord[t_id].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status,
-								ts->coord[t_id].noise_level, ts->coord[t_id].max_strength, ts->coord[t_id].hover_id_num);
-#endif
 					} else if (ts->coord[t_id].action == SEC_TS_COORDINATE_ACTION_MOVE) {
 						if (p_event_coord->max_energy_flag) {
 							ts->coord[t_id].max_energy_x = ts->coord[t_id].x;
@@ -1539,22 +1353,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 
 						if (pre_action == SEC_TS_COORDINATE_ACTION_NONE || pre_action == SEC_TS_COORDINATE_ACTION_RELEASE) {
 							location_detect(ts, location, ts->coord[t_id].x, ts->coord[t_id].y);
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-							input_info(true, &ts->client->dev,
-									"[M] tID:%d.%d x:%d y:%d z:%d major:%d minor:%d loc:%s tc:%d type:%X noise:(%x,%d%d), nlvl:%d, maxS:%d, hid:%d\n",
-									t_id, ts->input_dev->mt->trkid & TRKID_MAX,
-									ts->coord[t_id].x, ts->coord[t_id].y, ts->coord[t_id].z,
-									ts->coord[t_id].major, ts->coord[t_id].minor, location, ts->touch_count,
-									ts->coord[t_id].ttype, ts->coord[t_id].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status,
-									ts->coord[t_id].noise_level, ts->coord[t_id].max_strength, ts->coord[t_id].hover_id_num);
-#else
-							input_info(true, &ts->client->dev,
-									"[M] tID:%d.%d z:%d major:%d minor:%d loc:%s tc:%d type:%X noise:(%x,%d%d), nlvl:%d, maxS:%d, hid:%d\n",
-									t_id, ts->input_dev->mt->trkid & TRKID_MAX, ts->coord[t_id].z, 
-									ts->coord[t_id].major, ts->coord[t_id].minor, location, ts->touch_count,
-									ts->coord[t_id].ttype, ts->coord[t_id].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status,
-									ts->coord[t_id].noise_level, ts->coord[t_id].max_strength, ts->coord[t_id].hover_id_num);
-#endif
 						}
 
 						input_mt_slot(ts->input_dev, t_id);
@@ -1585,11 +1383,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 
 					if ((ts->coord[t_id].action == SEC_TS_COORDINATE_ACTION_PRESS)
 							|| (ts->coord[t_id].action == SEC_TS_COORDINATE_ACTION_MOVE)) {
-						if (ts->coord[t_id].ttype != pre_ttype) {
-							input_info(true, &ts->client->dev, "%s : tID:%d ttype(%x->%x)\n",
-									__func__, ts->coord[t_id].id,
-									pre_ttype, ts->coord[t_id].ttype);
-						}
 					}
 				} else {
 					input_dbg(true, &ts->client->dev,
@@ -1606,7 +1399,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 			switch (p_gesture_status->stype) {
 			case SEC_TS_GESTURE_CODE_SWIPE:
 				ts->scrub_id = SPONGE_EVENT_TYPE_SPAY;
-				input_info(true, &ts->client->dev, "%s: SPAY: %d\n", __func__, ts->scrub_id);
 				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				ts->all_spay_count++;
 				break;
@@ -1617,16 +1409,9 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 								| (p_gesture_status->gesture_data_3 >> 4);
 					ts->scrub_y = (p_gesture_status->gesture_data_2 << 4)
 								| (p_gesture_status->gesture_data_3 & 0x0F);
-#ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
-					input_info(true, &ts->client->dev, "%s: AOD: %d\n", __func__, ts->scrub_id);
-#else
-					input_info(true, &ts->client->dev, "%s: AOD: %d, %d, %d\n",
-							__func__, ts->scrub_id, ts->scrub_x, ts->scrub_y);
-#endif
 					input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 					ts->all_aod_tap_count++;
 				} else if (p_gesture_status->gesture_id == SEC_TS_GESTURE_ID_DOUBLETAP_TO_WAKEUP) {
-					input_info(true, &ts->client->dev, "%s: AOT\n", __func__);
 					input_report_key(ts->input_dev, KEY_WAKEUP, 1);
 					input_sync(ts->input_dev);
 					input_report_key(ts->input_dev, KEY_WAKEUP, 0);
@@ -1638,12 +1423,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 							| (p_gesture_status->gesture_data_3 >> 4);
 				ts->scrub_y = (p_gesture_status->gesture_data_2 << 4)
 							| (p_gesture_status->gesture_data_3 & 0x0F);
-#ifdef CONFIG_SAMSUNG_PRODUCT_SHIP
-				input_info(true, &ts->client->dev, "%s: SINGLE TAP: %d\n", __func__, ts->scrub_id);
-#else
-				input_info(true, &ts->client->dev, "%s: SINGLE TAP: %d, %d, %d\n",
-						__func__, ts->scrub_id, ts->scrub_x, ts->scrub_y);
-#endif
 				input_report_key(ts->input_dev, KEY_BLACK_UI_GESTURE, 1);
 				break;
 			case SEC_TS_GESTURE_CODE_PRESS:
@@ -1654,11 +1433,6 @@ static void sec_ts_read_event(struct sec_ts_data *ts)
 					else if (p_gesture_status->gesture_id == 2)
 						qbt2000_c1_fod_event_temporary(0);
 				}
-				input_info(true, &ts->client->dev, "%s: FOD: %d\n",
-						__func__, p_gesture_status->gesture_id);
-#else
-				input_info(true, &ts->client->dev, "%s: FOD: %sPRESS\n",
-						__func__, p_gesture_status->gesture_id ? "" : "LONG");
 #endif
 				break;
 			case SEC_TS_GESTURE_CODE_DUMPFLUSH:
@@ -1730,9 +1504,6 @@ static irqreturn_t sec_ts_irq_thread(int irq, void *ptr)
 		wait_for_completion_interruptible_timeout(&ts->secure_interrupt,
 				msecs_to_jiffies(5 * MSEC_PER_SEC));
 
-		input_info(true, &ts->client->dev,
-				"%s: secure interrupt handled\n", __func__);
-
 		return IRQ_HANDLED;
 	}
 #endif
@@ -1752,7 +1523,6 @@ static irqreturn_t sec_ts_irq_thread(int irq, void *ptr)
 
 	time_diff = (int)(current_time.tv_usec) - (int)(enter_time.tv_usec);
 	if (prev_touch_count > 0 && time_diff > 8000) {
-		input_info(true, &ts->client->dev, "%s : interval: %d\n", __func__, time_diff);
 		if (ts->irq_delay_count < 10000)
 			ts->irq_delay_count++;
 	}
@@ -1763,8 +1533,6 @@ static irqreturn_t sec_ts_irq_thread(int irq, void *ptr)
 int sec_ts_set_cover_type(struct sec_ts_data *ts, bool enable)
 {
 	int ret;
-
-	input_info(true, &ts->client->dev, "%s: %d\n", __func__, ts->cover_type);
 
 	switch (ts->cover_type) {
 	case SEC_TS_VIEW_WIRELESS:
@@ -1814,9 +1582,6 @@ int sec_ts_set_cover_type(struct sec_ts_data *ts, bool enable)
 		goto cover_enable_err;
 	}
 
-	input_info(true, &ts->client->dev, "%s: close:%d, status:%x\n", __func__,
-			enable, ts->touch_functions);
-
 	return 0;
 
 cover_enable_err:
@@ -1827,9 +1592,6 @@ EXPORT_SYMBOL(sec_ts_set_cover_type);
 void sec_ts_set_grip_type(struct sec_ts_data *ts, u8 set_type)
 {
 	u8 mode = G_NONE;
-
-	input_info(true, &ts->client->dev, "%s: re-init grip(%d), edh:%d, edg:%d, lan:%d\n", __func__,
-			set_type, ts->grip_edgehandler_direction, ts->grip_edge_range, ts->grip_landscape_mode);
 
 	/* edge handler */
 	if (ts->grip_edgehandler_direction != 0)
@@ -1910,9 +1672,6 @@ static ssize_t sec_ts_tsp_cmoffset_all_read(struct file *file, char __user *buf,
 		strlcat(ts->cmoffset_all_proc, ts->miscal_proc, ts->proc_cmoffset_all_size);
 
 		retlen = strlen(ts->cmoffset_all_proc);
-
-		input_info(true, &ts->client->dev, "%s : retlen[%zd], retlen_sdc[%zd], retlen_main[%zd] retlen_miscal[%zd]\n",
-						__func__, retlen, retlen_sdc, retlen_main, retlen_miscal);
 	}
 
 	if (pos >= retlen) {
@@ -1921,8 +1680,6 @@ static ssize_t sec_ts_tsp_cmoffset_all_read(struct file *file, char __user *buf,
 	}
 
 	count = min(len, (size_t)(retlen - pos));
-
-	input_info(true, &ts->client->dev, "%s : total:%zd pos:%lld count:%zd\n", __func__, retlen, pos, count);
 
 	if (copy_to_user(buf, ts->cmoffset_all_proc + pos, count)) {
 		input_err(true, &ts->client->dev, "%s : copy_to_user error!\n", __func__ );
@@ -1933,8 +1690,6 @@ static ssize_t sec_ts_tsp_cmoffset_all_read(struct file *file, char __user *buf,
 	*offset += count;
 
 	if (count < len) {
-		input_info(true, &ts->client->dev, "%s : print all & free cmoffset_all_proc [%zd][%d]\n",
-					__func__, retlen, (int)*offset);
 		if (ts->cmoffset_all_proc)
 			kfree(ts->cmoffset_all_proc);
 		retlen = 0;
@@ -2001,9 +1756,6 @@ static ssize_t sec_ts_tsp_fail_hist_all_read(struct file *file, char __user *buf
 		strlcat(ts->fail_hist_all_proc, ts->fail_hist_main_proc, ts->proc_fail_hist_all_size);
 
 		retlen = strlen(ts->fail_hist_all_proc);
-
-		input_info(true, &ts->client->dev, "%s : retlen[%zd], retlen_sdc[%zd], retlen_sub[%zd], retlen_main[%zd]\n",
-						__func__, retlen, retlen_sdc, retlen_sub, retlen_main);
 	}
 
 	if (pos >= retlen) {
@@ -2012,8 +1764,6 @@ static ssize_t sec_ts_tsp_fail_hist_all_read(struct file *file, char __user *buf
 	}
 
 	count = min(len, (size_t)(retlen - pos));
-
-	input_info(true, &ts->client->dev, "%s : total:%zd pos:%lld count:%zd\n", __func__, retlen, pos, count);
 
 	if (copy_to_user(buf, ts->fail_hist_all_proc + pos, count)) {
 		input_err(true, &ts->client->dev, "%s : copy_to_user error!\n", __func__ );
@@ -2024,8 +1774,6 @@ static ssize_t sec_ts_tsp_fail_hist_all_read(struct file *file, char __user *buf
 	*offset += count;
 
 	if (count < len) {
-		input_info(true, &ts->client->dev, "%s : print all & free fail_hist_all_proc [%zd][%d]\n",
-					__func__, retlen, (int)*offset);
 		if (ts->fail_hist_all_proc)
 			kfree(ts->fail_hist_all_proc);
 		retlen = 0;
@@ -2111,7 +1859,6 @@ static void sec_ts_init_proc(struct sec_ts_data *ts)
 	proc_set_size(entry_fail_hist_all, ts->proc_fail_hist_all_size);
 
 	g_ts = ts;
-	input_info(true, &ts->client->dev, "%s: done\n", __func__);
 	return;
 
 err_fail_hist_proc_create:
@@ -2149,8 +1896,6 @@ err_alloc_main:
 static int sec_ts_pinctrl_configure(struct sec_ts_data *ts, bool enable)
 {
 	struct pinctrl_state *state;
-
-	input_info(true, &ts->client->dev, "%s: %s\n", __func__, enable ? "ACTIVE" : "SUSPEND");
 
 	if (enable) {
 		state = pinctrl_lookup_state(ts->plat_data->pinctrl, "on_state");
@@ -2248,7 +1993,6 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 
 	pdata->tsp_icid = of_get_named_gpio(np, "sec,tsp-icid_gpio", 0);
 	if (gpio_is_valid(pdata->tsp_icid)) {
-		input_info(true, dev, "%s: TSP_ICID : %d\n", __func__, gpio_get_value(pdata->tsp_icid));
 		if (of_property_read_u32(np, "sec,icid_match_value", &ic_match_value)) {
 			input_err(true, dev, "%s: Failed to get icid match value\n", __func__);
 			return -EINVAL;
@@ -2279,9 +2023,6 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 	if (of_property_read_u32(np, "sec,irq_type", &pdata->irq_type)) {
 		input_err(true, dev, "%s: Failed to get irq_type property\n", __func__);
 		pdata->irq_type = IRQF_TRIGGER_LOW | IRQF_ONESHOT;
-	} else {
-		input_info(true, dev, "%s: irq_type property:%X, %d\n", __func__,
-				pdata->irq_type, pdata->irq_type);
 	}
 
 	if (of_property_read_u32(np, "sec,i2c-burstmax", &pdata->i2c_burstmax)) {
@@ -2300,9 +2041,7 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 		pdata->bringup = 0;
 
 	pdata->tsp_id = of_get_named_gpio(np, "sec,tsp-id_gpio", 0);
-	if (gpio_is_valid(pdata->tsp_id))
-		input_info(true, dev, "%s: TSP_ID : %d\n", __func__, gpio_get_value(pdata->tsp_id));
-	else
+	if (!gpio_is_valid(pdata->tsp_id))
 		input_err(true, dev, "%s: Failed to get tsp-id gpio\n", __func__);
 
 #if defined(CONFIG_DISPLAY_SAMSUNG)
@@ -2325,15 +2064,12 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 		return -ENODEV;
 	}
 
-	input_info(true, &client->dev, "%s: lcd is connected\n", __func__);
-
 	lcdtype = get_lcd_info("id");
 	if (lcdtype < 0) {
 		input_err(true, dev, "%s: Failed to get lcd info\n", __func__);
 		return -EINVAL;
 	}
 #endif
-	input_info(true, &client->dev, "%s: lcdtype 0x%08X\n", __func__, lcdtype);
 
 	count = of_property_count_strings(np, "sec,firmware_name");
 	if (count <= 0) {
@@ -2394,7 +2130,6 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 	pdata->support_fp_intr2_call = of_property_read_bool(np, "support_fp_intr2_call");	
 
 	if (of_property_read_u32_array(np, "sec,area-size", px_zone, 3)) {
-		input_info(true, &client->dev, "Failed to get zone's size\n");
 		pdata->area_indicator = 48;
 		pdata->area_navigation = 96;
 		pdata->area_edge = 60;
@@ -2403,8 +2138,6 @@ static int sec_ts_parse_dt(struct i2c_client *client)
 		pdata->area_navigation = px_zone[1];
 		pdata->area_edge = px_zone[2];
 	}
-	input_info(true, &client->dev, "%s : zone's size - indicator:%d, navigation:%d, edge:%d\n",
-		__func__, pdata->area_indicator, pdata->area_navigation ,pdata->area_edge);
 
 #ifdef CONFIG_INPUT_SEC_SECURE_TOUCH
 	of_property_read_u32(np, "sec,ss_touch_num", &pdata->ss_touch_num);
@@ -2456,9 +2189,6 @@ int sec_ts_read_information(struct sec_ts_data *ts)
 		return ret;
 	}
 
-	input_info(true, &ts->client->dev,
-			"%s: %X, %X, %X\n",
-			__func__, data[0], data[1], data[2]);
 	memset(data, 0x0, 11);
 	ret = sec_ts_i2c_read(ts,  SEC_TS_READ_PANEL_INFO, data, 11);
 	if (ret < 0) {
@@ -2482,12 +2212,6 @@ int sec_ts_read_information(struct sec_ts_data *ts)
 	ts->tx_count = min((int)data[8], TOUCH_TX_CHANNEL_NUM);
 	ts->rx_count = min((int)data[9], TOUCH_RX_CHANNEL_NUM);
 
-	input_info(true, &ts->client->dev,
-			"%s: nTX:%d, nRX:%d,  rX:%d, rY:%d, dX:%d, dY:%d\n",
-			__func__, ts->tx_count , ts->rx_count,
-			ts->plat_data->max_x, ts->plat_data->max_y,
-			ts->plat_data->display_x, ts->plat_data->display_y);
-
 	data[0] = 0;
 	ret = sec_ts_i2c_read(ts, SEC_TS_READ_BOOT_STATUS, data, 1);
 	if (ret < 0) {
@@ -2496,10 +2220,6 @@ int sec_ts_read_information(struct sec_ts_data *ts)
 				__func__, ret);
 		return ret;
 	}
-
-	input_info(true, &ts->client->dev,
-			"%s: STATUS : %X\n",
-			__func__, data[0]);
 
 	memset(data, 0x0, 4);
 	ret = sec_ts_i2c_read(ts, SEC_TS_READ_TS_STATUS, data, 4);
@@ -2510,9 +2230,6 @@ int sec_ts_read_information(struct sec_ts_data *ts)
 		return ret;
 	}
 
-	input_info(true, &ts->client->dev,
-			"%s: TOUCH STATUS : %02X, %02X, %02X, %02X\n",
-			__func__, data[0], data[1], data[2], data[3]);
 	ret = sec_ts_i2c_read(ts, SEC_TS_CMD_SET_TOUCHFUNCTION,  (u8 *)&(ts->touch_functions), 2);
 	if (ret < 0) {
 		input_err(true, &ts->client->dev,
@@ -2520,10 +2237,6 @@ int sec_ts_read_information(struct sec_ts_data *ts)
 				__func__, ret);
 		return ret;
 	}
-
-	input_info(true, &ts->client->dev,
-			"%s: Functions : %02X\n",
-			__func__, ts->touch_functions);
 
 	return ret;
 }
@@ -2576,11 +2289,6 @@ int sec_ts_check_custom_library(struct sec_ts_data *ts)
 	int ret = -1;
 
 	ret = ts->sec_ts_i2c_read(ts, SEC_TS_CMD_SPONGE_GET_INFO, &data[0], 10);
-
-	input_info(true, &ts->client->dev,
-			"%s: (%d) %c%c%c%c, || %02X, %02X, %02X, %02X, || %02X, %02X\n",
-			__func__, ret, data[0], data[1], data[2], data[3], data[4],
-			data[5], data[6], data[7], data[8], data[9]);
 
 	sec_ts_set_custom_library(ts);
 	get_aod_active_area(ts);
@@ -2657,8 +2365,6 @@ static int sec_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	unsigned char data[5] = { 0 };
 	unsigned char deviceID[5] = { 0 };
 	unsigned char result = 0;
-
-	input_info(true, &client->dev, "%s\n", __func__);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		input_err(true, &client->dev, "%s: EIO err!\n", __func__);
@@ -2812,8 +2518,6 @@ static int sec_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	init_completion(&ts->resume_done);
 	complete_all(&ts->resume_done);
 
-	input_info(true, &client->dev, "%s: init resource\n", __func__);
-
 	sec_ts_pinctrl_configure(ts, true);
 
 	/* power enable */
@@ -2835,15 +2539,9 @@ static int sec_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 		sec_ts_wait_for_ready(ts, SEC_TS_ACK_BOOT_COMPLETE);
 	}
 
-	input_info(true, &client->dev, "%s: power enable\n", __func__);
-
 	ret = sec_ts_i2c_read(ts, SEC_TS_READ_DEVICE_ID, deviceID, 5);
 	if (ret < 0)
 		input_err(true, &ts->client->dev, "%s: failed to read device ID(%d)\n", __func__, ret);
-	else
-		input_info(true, &ts->client->dev,
-				"%s: TOUCH DEVICE ID : %02X, %02X, %02X, %02X, %02X\n", __func__,
-				deviceID[0], deviceID[1], deviceID[2], deviceID[3], deviceID[4]);
 
 	ret = sec_ts_i2c_read(ts, SEC_TS_READ_FIRMWARE_INTEGRITY, &result, 1);
 	if (ret < 0) {
@@ -2873,9 +2571,6 @@ static int sec_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 					__func__, ret);
 		}
 	}
-	input_info(true, &ts->client->dev,
-			"%s: TOUCH STATUS : %02X || %02X, %02X, %02X, %02X\n",
-			__func__, data[0], data[1], data[2], data[3], data[4]);
 
 	if (data[0] == SEC_TS_STATUS_BOOT_MODE)
 		ts->checksum_result = 1;
@@ -2954,8 +2649,6 @@ static int sec_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 			goto err_input_proximity_register_device;
 		}
 	}
-
-	input_info(true, &ts->client->dev, "%s: request_irq = %d\n", __func__, client->irq);
 
 	ret = request_threaded_irq(client->irq, NULL, sec_ts_irq_thread,
 			ts->plat_data->irq_type, SEC_TS_I2C_NAME, ts);
@@ -3099,27 +2792,6 @@ void sec_ts_unlocked_release_all_finger(struct sec_ts_data *ts)
 		if ((ts->coord[i].action == SEC_TS_COORDINATE_ACTION_PRESS) ||
 				(ts->coord[i].action == SEC_TS_COORDINATE_ACTION_MOVE)) {
 			location_detect(ts, location, ts->coord[i].x, ts->coord[i].y);
-
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-			input_info(true, &ts->client->dev,
-					"[RA] tID:%d loc:%s dd:%d,%d mc:%d tc:%d lx:%d ly:%d p:%d noise:(%x,%d%d)\n",
-					i, location,
-					ts->coord[i].x - ts->coord[i].p_x,
-					ts->coord[i].y - ts->coord[i].p_y,
-					ts->coord[i].mcount, ts->touch_count,
-					ts->coord[i].x, ts->coord[i].y,
-					ts->coord[i].palm_count,
-					ts->coord[i].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status);
-#else
-			input_info(true, &ts->client->dev,
-					"[RA] tID:%d loc:%s dd:%d,%d mc:%d tc:%d p:%d noise:(%x,%d%d)\n",
-					i, location,
-					ts->coord[i].x - ts->coord[i].p_x,
-					ts->coord[i].y - ts->coord[i].p_y,
-					ts->coord[i].mcount, ts->touch_count,
-					ts->coord[i].palm_count,
-					ts->coord[i].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status);
-#endif
 			ts->coord[i].action = SEC_TS_COORDINATE_ACTION_RELEASE;
 		}
 		ts->coord[i].mcount = 0;
@@ -3158,26 +2830,6 @@ void sec_ts_locked_release_all_finger(struct sec_ts_data *ts)
 		if ((ts->coord[i].action == SEC_TS_COORDINATE_ACTION_PRESS) ||
 				(ts->coord[i].action == SEC_TS_COORDINATE_ACTION_MOVE)) {
 			location_detect(ts, location, ts->coord[i].x, ts->coord[i].y);
-#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
-			input_info(true, &ts->client->dev,
-					"[RA] tID:%d loc:%s dd:%d,%d mc:%d tc:%d lx:%d ly:%d p:%d noise:(%x,%d%d)\n",
-					i, location,
-					ts->coord[i].x - ts->coord[i].p_x,
-					ts->coord[i].y - ts->coord[i].p_y,
-					ts->coord[i].mcount, ts->touch_count,
-					ts->coord[i].x, ts->coord[i].y,
-					ts->coord[i].palm_count,
-					ts->coord[i].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status);
-#else
-			input_info(true, &ts->client->dev,
-					"[RA] tID:%d loc:%s dd:%d,%d mc:%d tc:%d p:%d noise:(%x,%d%d)\n",
-					i, location,
-					ts->coord[i].x - ts->coord[i].p_x,
-					ts->coord[i].y - ts->coord[i].p_y,
-					ts->coord[i].mcount, ts->touch_count,
-					ts->coord[i].palm_count,
-					ts->coord[i].noise_status, ts->touch_noise_status, ts->touch_pre_noise_status);
-#endif
 			ts->coord[i].action = SEC_TS_COORDINATE_ACTION_RELEASE;
 		}
 		ts->coord[i].mcount = 0;
@@ -3225,7 +2877,6 @@ static void sec_ts_reset_work(struct work_struct *work)
 	wake_lock(&ts->wakelock);
 
 	ts->reset_is_on_going = true;
-	input_info(true, &ts->client->dev, "%s\n", __func__);
 
 	sec_ts_stop_device(ts);
 
@@ -3324,12 +2975,10 @@ static void sec_ts_read_info_work(struct work_struct *work)
 	disable_irq(ts->client->irq);
 
 	ret = sec_tclm_check_cal_case(ts->tdata);
-	input_info(true, &ts->client->dev, "%s: sec_tclm_check_cal_case ret: %d \n", __func__, ret);
 
 	enable_irq(ts->client->irq);
 #endif
 	ts->nv = get_tsp_nvm_data(ts, SEC_TS_NVM_OFFSET_FAC_RESULT);
-	input_info(true, &ts->client->dev, "%s: fac_nv:%02X\n", __func__, ts->nv);
 	input_log_fix();
 
 	sec_ts_run_rawdata_all(ts, false);
@@ -3412,7 +3061,6 @@ int sec_ts_set_lowpowermode(struct sec_ts_data *ts, u8 mode)
 			if (ts->sponge_dump_delayed_flag) {
 				sec_ts_sponge_dump_flush(ts, ts->sponge_dump_delayed_area);
 				ts->sponge_dump_delayed_flag = false;
-				input_info(true, &ts->client->dev, "%s : Sponge dump flush delayed work have procceed\n", __func__);
 			}
 		}
 
@@ -3438,8 +3086,6 @@ retry_pmode:
 	if (ret < 0) {
 		input_err(true, &ts->client->dev, "%s: read power mode failed!\n", __func__);
 		goto i2c_error;
-	} else {
-		input_info(true, &ts->client->dev, "%s: power mode - write(%d) read(%d)\n", __func__, mode, para);
 	}
 
 	if (mode != para) {
@@ -3472,8 +3118,6 @@ retry_pmode:
 		ts->power_status = SEC_TS_STATE_POWER_ON;
 
 i2c_error:
-	input_info(true, &ts->client->dev, "%s: end %d\n", __func__, ret);
-
 	return ret;
 }
 
@@ -3506,7 +3150,6 @@ static int sec_ts_dms_notifier_cb(struct notifier_block *nb, unsigned long event
 			return 0;
 		}
 		memcpy(&ts->dms_event_data, evdata, sizeof(struct panel_dms_data));
-		input_info(true, &ts->client->dev, "%s: set VRR %d LFD max %d min %d\n", __func__,evdata->fps, evdata->lfd_max_freq,evdata->lfd_min_freq);
 	}
 
 	return 0;
@@ -3614,8 +3257,6 @@ static int sec_ts_remove(struct i2c_client *client)
 {
 	struct sec_ts_data *ts = i2c_get_clientdata(client);
 
-	input_info(true, &ts->client->dev, "%s\n", __func__);
-
 	mutex_lock(&ts->modechange);
 
 	ts->input_dev->open = NULL;
@@ -3637,7 +3278,6 @@ static int sec_ts_remove(struct i2c_client *client)
 #endif
 	disable_irq(ts->client->irq);
 	free_irq(ts->client->irq, ts);
-	input_info(true, &ts->client->dev, "%s: irq disabled\n", __func__);
 
 	cancel_delayed_work_sync(&ts->ghost_check);
 	cancel_delayed_work_sync(&ts->work_read_info);
@@ -3647,7 +3287,6 @@ static int sec_ts_remove(struct i2c_client *client)
 #ifdef USE_POWER_RESET_WORK
 	cancel_delayed_work_sync(&ts->reset_work);
 #endif
-	input_info(true, &ts->client->dev, "%s: flush queue\n", __func__);
 
 	sec_ts_fn_remove(ts);
 
@@ -3685,15 +3324,11 @@ static void sec_ts_shutdown(struct i2c_client *client)
 {
 	struct sec_ts_data *ts = i2c_get_clientdata(client);
 
-	input_info(true, &ts->client->dev, "%s\n", __func__);
-
 	sec_ts_remove(client);
 }
 
 int sec_ts_stop_device(struct sec_ts_data *ts)
 {
-	input_info(true, &ts->client->dev, "%s\n", __func__);
-
 	mutex_lock(&ts->device_mutex);
 
 	if (ts->power_status == SEC_TS_STATE_POWER_OFF) {
@@ -3726,8 +3361,6 @@ out:
 int sec_ts_start_device(struct sec_ts_data *ts)
 {
 	int ret = -1;
-
-	input_info(true, &ts->client->dev, "%s\n", __func__);
 
 	sec_ts_pinctrl_configure(ts, true);
 
