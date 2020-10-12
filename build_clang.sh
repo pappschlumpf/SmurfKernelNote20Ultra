@@ -26,7 +26,7 @@ export SPL="2020-05"
 DEFCONFIG="exynos9830-c2sxxx_defconfig"
 
 # Kernel Details
-VER=".1.0.0t1"
+VER=".1.0.0"
 
 # Paths
 KERNEL_DIR=`pwd`
