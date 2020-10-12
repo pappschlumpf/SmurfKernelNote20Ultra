@@ -8420,10 +8420,6 @@ static int detach_tasks(struct lb_env *env)
 		return detached;
 	}
 
-	if (env->src_rq->nr_running < 32) {
-		if (!same_cluster(env->dst_cpu, env->src_cpu))
-			env->flags |= LBF_IGNORE_PREFERRED_CLUSTER_TASKS;
-
 	while (!list_empty(tasks)) {
 		/*
 		 * We don't want to steal all, otherwise we may be treated likewise,
